@@ -1,0 +1,7 @@
+image: python:3.11-slim
+context:
+  internet_facing: true
+  data_classification: PII
+  environment: production
+  blast_radius: high
+  has_waf: true
