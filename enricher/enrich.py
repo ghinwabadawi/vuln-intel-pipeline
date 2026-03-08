@@ -58,22 +58,22 @@ def calculate_priority_score(vuln, epss_map, kev_ids, context):
 
     # Asset context multipliers
     if context.get('internet_facing'):
-        score *= 1.5
+        score *= 1.15
         reasons.append('Internet facing service')
 
     if context.get('data_classification') in ['PII', 'financial']:
-        score *= 1.5
+        score *= 1.15
         reasons.append(f"Sensitive data: {context.get('data_classification')}")
 
     if context.get('blast_radius') == 'high':
-        score *= 1.3
+        score *= 1.10
         reasons.append('High blast radius')
     elif context.get('blast_radius') == 'medium':
-        score *= 1.1
+        score *= 1.05
         reasons.append('Medium blast radius')
     
     if context.get('environment') == 'production':
-        score *= 1.2
+        score *= 1.05
         reasons.append('Production environment')
 
     # WAF as compensating control
@@ -84,7 +84,14 @@ def calculate_priority_score(vuln, epss_map, kev_ids, context):
         score *= 0.9
         reasons.append('WAF present - partial mitigation for web vulnerabilities')
     
-    # Cap at 10
+    # Disputed flag - vendor severity disagrees with CVSS score
+    severity = vuln.get('severity', 'UNKNOWN').upper()
+    disputed = (
+        (severity == 'LOW' and (vuln.get('cvss_v3') or 0) >= 7.0) or
+        (severity == 'MEDIUM' and (vuln.get('cvss_v3') or 0) >= 9.0)
+    )
+    
+    # Cap at 10  
     score = min(score, 10.0)
 
     # Force Critical if in KEV regardless of score
@@ -101,12 +108,14 @@ def calculate_priority_score(vuln, epss_map, kev_ids, context):
     else:
         sla = 'Low - fix within 90 days'
 
-    return{
-        'priority_score': round(score, 2),
-        'sla': sla,
-        'in_kev': in_kev,
-        'reasons': reasons
-    }
+    return {
+    'priority_score': round(score, 2),
+    'sla': sla,
+    'epss': epss,
+    'in_kev': in_kev,
+    'disputed': disputed,
+    'reasons': reasons
+}
     
 def enrich_vulnerabilities(vulnerabilities, asset_context_path='asset-context.yaml'):
     """Enrich vulnerabilities with EPSS, KEV and priority scores."""
@@ -154,8 +163,9 @@ if __name__ == '__main__':
     for vuln in enriched:
         print(f"CVE:            {vuln['cve_id']}")
         print(f"Package:        {vuln['package']} {vuln['version']}")
-        print(f"Severity:       {vuln['severity']}")
+        print(f"Severity:       {vuln['severity']} (source: {vuln['severity_source']})")
         print(f"CVSS v3:        {vuln['cvss_v3']} (source: {vuln['cvss_source']})")
+        print(f"Disputed:       {vuln['disputed']}")
         print(f"In KEV:         {vuln['in_kev']}")
         print(f"Priority Score: {vuln['priority_score']}")
         print(f"SLA:            {vuln['sla']}")

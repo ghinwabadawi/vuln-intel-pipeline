@@ -67,6 +67,7 @@ def extract_vulnerabilities(report):
                 'fixed_version': fixed_version,
                 'status': status,
                 'severity': vuln.get('Severity', 'UNKNOWN'),
+                'severity_source': vuln.get('SeveritySource', 'unknown'),
                 'title': vuln.get('Title', ''),
                 'description': vuln.get('Description', ''),
                 'cvss_v3': cvss_v3,
